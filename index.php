@@ -7,10 +7,7 @@
  * Spam/Ham mails taken from http://archive.ics.uci.edu/ml/datasets/SMS+Spam+Collection
  */
 include("Bayes.php");
-include("FlossInterface.php");
 $bayes = new Bayes(["Spam","Ham"]);
-$floss = new FlossInterface();
-
 
 $testContents = explode("\n",file_get_contents("testfiles/SMSSpamCollection.txt"));
 foreach($testContents as $testCase){
