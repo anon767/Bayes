@@ -1,2 +1,4 @@
 # Bayes
-Simple PHP Bayes Classificator with Spam Mail Example
+Simple PHP Multinomial Bayes Classificator with Spam Mail Example
+
+

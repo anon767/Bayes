@@ -1,25 +1,16 @@
 <?php
-error_reporting(E_ALL ^ E_NOTICE);
-
 /**
- * Created by PhpStorm.
- * User: tg
- * Date: 26.09.2016
- * Time: 14:17
+ * @project: Bayes
+ * @author: Tom
+ * @date: 03.01.2017
  */
+require("Feature.php");
+
 class Bayes
 {
-    const BAD = 0;
-    const GOOD = 1;
-    var $files = [0, 0];
+    var $features = [];
     var $naming = array();
-    var $wordsBad = array();
-    var $wordsGood = array();
-
-    public function __construct($naming)
-    {
-        $this->naming = $naming;
-    }
+    var $messages = 0;
 
     /**
      * Split sentence by every word
@@ -31,68 +22,46 @@ class Bayes
         return preg_split("/\\s+|\\b(?=[!\\?\\.])(?!\\.\\s+)/", $sentence);
     }
 
-    /**
-     * P(BAD) = Amount BAD / Amount of files
-     * @return float|int
-     */
-    private function calcProbabilityMalware()
-    {
-        return ($this->files[SELF::BAD]) / ($this->files[SELF::BAD] + $this->files[SELF::GOOD]);
-    }
 
     /**
-     * P(GOOD) = Amount GOOD / Amount of Files
-     * @return float|int
-     */
-    private function calcProbabilityNonMalware()
-    {
-        return ($this->files[SELF::GOOD]) / ($this->files[SELF::BAD] + $this->files[SELF::GOOD]);
-    }
-
-
-    /**
-     * adds +1 to either BAD or GOOD
-     * foreach word in sentence -> increment word occurence in either wordsBad or wordsGood
-     * @param $words
+     * Learn by labeled Sentence
+     * @param $sentence
      * @param $class
      */
-    public function learn($words, $class) // $class = malware/nonmalware
+    public function learn($sentence, $class)
     {
-        $this->files[$class] += 1;
+        $words = $this->splitByRegEx($sentence);
+        if (!array_key_exists($class, $this->features)) {
+            $this->features[$class] = new Feature();
+            $this->features[$class]->setName($class);
+        }
+        $this->messages++;
+        $this->features[$class]->setMessageCount($this->features[$class]->getMessageCount() + 1);
         foreach ($words as $word) {
             if ($word != "") {
                 $word = mb_strtolower($word);
-                if ($class == SELF::BAD) {
-                    $this->wordsBad[$word] = $this->wordsBad[$word] + 1;
-                } else {
-                    $this->wordsGood[$word] = $this->wordsGood[$word] + 1;
-                }
+                $this->features[$class]->addWord($word);
             }
         }
     }
 
     /**
-     * ( P(W1|Malware)*....P(Wn|Malware)/P(W1|NonMalware)*...P(Wn|NonMalware) ) * P(Malware)/P(NonMalware)
-     * q > 1 := malware
-     * q <= 1 := non Malware
-     * @param $words
-     * @return string
+     * @param $sentence
+     * @return false|int|string
      */
-    public function classify($words)
+    public function classify($sentence)
     {
-        $badprobability = $this->calcProbabilityMalware();
-        $goodprobability = $this->calcProbabilityNonMalware();
-        foreach ($words as $word) {
-            $amountWordBad = $this->wordsBad[$word] > 0 ? $this->wordsBad[$word] : 1;
-            $amountWordGood = $this->wordsGood[$word] > 0 ? $this->wordsGood[$word] : 1;
-            $badprobability *= $amountWordBad / (count($this->wordsBad));
-            $goodprobability *= $amountWordGood / (count($this->wordsGood));
+
+        $words = $this->splitByRegEx($sentence);
+        $max = [];
+        foreach ($this->features as $feature) {
+            $probability = $feature->calcProbability($this->messages);
+            foreach ($words as $word) {
+                $amountWords = (array_key_exists($word, $feature->getWords()) && $feature->getWord($word) > 0) ? $feature->getWord($word) : 0.2;
+                $probability *= ($amountWords / $feature->getMessageCount());
+            }
+            $max[$feature->getName()] = log($probability);
         }
-        $q = $badprobability / $goodprobability;
-        if ($q > 1) {
-            return $this->naming[SELF::BAD];
-        } else {
-            return $this->naming[SELF::GOOD];
-        }
+        return array_search(max($max), $max);
     }
 }
